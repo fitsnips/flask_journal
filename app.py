@@ -1,30 +1,37 @@
-from flask import Flask, render_template, url_for, json
-app = Flask(__name__)
+from datetime import datetime
+from flask import Flask, render_template, url_for, flash, redirect, json
+from flask_sqlalchemy import SQLAlchemy
+from forms import RegistrationForm, LoginForm
 
-#
-# entries = [
-#     {
-#         'title': 'Always learning',
-#         'date_posted': '2019-02-16 20:33:57',
-#         'content': 'Always make sure your learning, if not you falling behind.'
-#     },
-#     {
-#         'title': 'Lorem ipsum',
-#         'date_posted': '2019-02-16 20:45:46',
-#         'content': 'Lorem ipsum dolor sit amet, affert accumsan mentitum qui eu, ne sea choro graeci semper. Mei tation audiam ut, semper bonorum in per. Eum dicit appetere et, ut per accusata sadipscing. Mei ad saepe docendi tractatos, utamur aeterno vim cu, pri id facilisis hendrerit. Liber fabulas gubergren ad pro, cum errem quodsi in. Everti patrioque an his.'
-#     },
-#     {
-#         'title': 'Python Coding',
-#         'date_posted': '2019-02-16 21:03:21',
-#         'content': 'python coding is coming along, I think in a few weeks I will be able to complete more interviews'
-#     },
-#     {
-#         'title': 'Python for profit',
-#         'date_posted': '2019-02-16 20:14:29.090902',
-#         'content': 'Once we learn python the money will roll in right?',
-#         'updated': '2019-02-16 20:35:43'
-#     }
-#  ]
+app = Flask(__name__)
+app.config['SECRET_KEY'] = '3932l3k3k39923k49kdksks'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
+db = SQLAlchemy(app)
+
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(20), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    image_file = db.Column(db.String(20), nullable=False, default='default.jpg')
+    password = db.Column(db.String(60), nullable=False)
+    posts = db.relationship('Post', backref='author', lazy=True)
+
+    def __repr__(self):
+        return f"User('{self.username}', '{self.email}', '{self.image_file}')"
+
+
+class Post(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=False)
+    date_posted = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    content = db.Column(db.Text, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    def __repr__(self):
+        return f"Post('{self.title}', '{self.date_posted}')"
+
+
 
 def open_journal(jfile):
     # open the file, create if not present
@@ -64,14 +71,26 @@ def home():
 def about():
     return render_template('about.html')
 
-@app.route("/login")
-def login():
-    return render_template('login.html')
-
-
-@app.route("/register")
+@app.route("/register", methods=['GET', 'POST'])
 def register():
-    return render_template('register.html')
+    form = RegistrationForm()
+    if form.validate_on_submit():
+        flash(f'Account created for {form.username.data}!', 'success')
+        return redirect(url_for('home'))
+    return render_template('register.html', title='Register', form=form)
+
+
+@app.route("/login", methods=['GET', 'POST'])
+def login():
+    form = LoginForm()
+    if form.validate_on_submit():
+        if form.email.data == 'admin@blog.com' and form.password.data == 'hardcodedpasswordsforthewin':
+            flash('You have been logged in!', 'success')
+            return redirect(url_for('home'))
+        else:
+            flash('Login Unsuccessful. Please check username and password', 'danger')
+    return render_template('login.html', title='Login', form=form)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
